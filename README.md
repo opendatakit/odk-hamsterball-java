@@ -18,15 +18,27 @@ Engage with the community and get technical support on [the ODK-X forum](https:/
 
 ## Build 
 
+to build a docker image directly from the remote repository:
+
 `docker build --pull -t odk/sync-web-ui https://github.com/opendatakit/sync-endpoint-web-ui.git`
+
+alternatively, if you've cloned the repository to your local computer, nagivate to the directory containing the DockerFile, and use
+
+`docker build -t odk/sync-web-ui .`
 
 ## Run
 
-Use [RUN.md](RUN.md).
+The Web UI must run in conjunction with ODK sync-endpoint. 
+The fastest way to get sync-endpoint set up is through following the build and run instructions of
+[sync-endpoint-default-setup](https://github.com/opendatakit/sync-endpoint-default-setup).
 
-Launch a container with the [Docker file](DOCKER.md)
+Once everything is set and ready, in the `sync-endpoint-default-setup` directory, run command
+`docker stack deploy -c docker-compose.yml syncldap` to deploy all services
 
-See [sync-endpoint-default-setup](https://github.com/opendatakit/sync-endpoint-default-setup) for typical usage.
+To terminate all services and remove the stack, run `docker stack rm syncldap` followed by `docker system prune`.
+
+*To customize your local setup, please look at ``docker-compose.yml`` inside the ``sync-endpoint-default-setup`` directory for more details.*
+
 
 ## Acknowledgements
 
