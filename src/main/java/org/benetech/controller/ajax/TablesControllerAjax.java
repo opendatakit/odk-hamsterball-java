@@ -41,7 +41,7 @@ public class TablesControllerAjax {
 
   @GetMapping(value = "/tables/{tableId}/rows/{rowId}", produces = "application/json;charset=UTF-8")
   public ResponseEntity<?> getRowDetail(@PathVariable("tableId") String tableId,
-      @PathVariable(name = "rowId") String rowId, Model model) {
+                                        @PathVariable(name = "rowId") String rowId, Model model) {
 
     OdkClient odkClient = odkClientFactory.getOdkClient();
     TableResource tableResource = odkClient.getTableResource(tableId);
@@ -53,7 +53,7 @@ public class TablesControllerAjax {
 
   @GetMapping(value = "/tables/{tableId}/rows/{rowId}/map", produces = "application/json;charset=UTF-8")
   public ResponseEntity<?> getRowDetailMap(@PathVariable("tableId") String tableId,
-      @PathVariable(name = "rowId") String rowId, Model model) {
+                                           @PathVariable(name = "rowId") String rowId, Model model) {
 
     OdkClient odkClient = odkClientFactory.getOdkClient();
     TableResource tableResource = odkClient.getTableResource(tableId);
@@ -64,7 +64,7 @@ public class TablesControllerAjax {
         // skip
       } else if (value.column.toLowerCase().endsWith("_urifragment")) {
         String origColumnName =
-            value.column.substring(0, value.column.length() - "_uriFragment".length());
+                value.column.substring(0, value.column.length() - "_uriFragment".length());
         mappedRowValues.put(origColumnName, value.value);
       } else {
         mappedRowValues.put(value.column, value.value);
@@ -76,15 +76,15 @@ public class TablesControllerAjax {
 
   @GetMapping(value = "/tables/{tableId}/rows/{rowId}/attachments", produces = "application/json;charset=UTF-8")
   public ResponseEntity<?> getRowAttachments(@PathVariable("tableId") String tableId,
-      @PathVariable(name = "rowId") String rowId, Model model) {
+                                             @PathVariable(name = "rowId") String rowId, Model model) {
 
     OdkClient odkClient = odkClientFactory.getOdkClient();
     TableResource tableResource = odkClient.getTableResource(tableId);
     OdkTablesFileManifest manifest =
-        odkClient.getSingleRowAttachments(tableId, tableResource.getSchemaETag(), rowId);
+            odkClient.getSingleRowAttachments(tableId, tableResource.getSchemaETag(), rowId);
 
     Map<String, OdkTablesFileManifestEntry> entryMap =
-        new HashMap<String, OdkTablesFileManifestEntry>();
+            new HashMap<String, OdkTablesFileManifestEntry>();
     for (OdkTablesFileManifestEntry entry : manifest.getFiles()) {
       entryMap.put(entry.filename, new OdkTablesFileManifestEntryDisplay(entry));
     }
@@ -100,7 +100,7 @@ public class TablesControllerAjax {
     OdkTablesFileManifestEntry formDefEntry = null;
     for (OdkTablesFileManifestEntry entry : manifest.getFiles()) {
       if (entry.filename != null
-          && entry.filename.toLowerCase().endsWith(FORMS_JSON_FILENAME.toLowerCase())) {
+              && entry.filename.toLowerCase().endsWith(FORMS_JSON_FILENAME.toLowerCase())) {
         formDefEntry = entry;
         break;
       }
@@ -144,13 +144,64 @@ public class TablesControllerAjax {
     }
 
     HttpHeaders headers = new HttpHeaders();
-    headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rows.json");
 
     if (format.equalsIgnoreCase("JSON")) {
+      headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rows.json");
       return new ResponseEntity<>(rowResourceList.getRows(), headers, HttpStatus.OK);
+    } else if (format.equalsIgnoreCase("CSV")) {
+      headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rows.csv");
+      ArrayList<RowResource> rows = rowResourceList.getRows();
+
+      StringBuilder valueHeader = new StringBuilder();
+      if (rows.size() > 0) {
+        ArrayList<DataKeyValue> firstRowValues = rows.get(0).getValues();
+        for (DataKeyValue value : firstRowValues) {
+          valueHeader.append(value.column+ ",");
+        }
+      }
+
+      StringBuilder body = new StringBuilder();
+      body.append("rowId,formId,locale,savepointType,savepointTimestamp,savepointCreator,createUser,lastUpdateUser," +
+              "deleted,dataETagAtModification,");
+      body.append(valueHeader);
+      body.append("defaultAccess,rowOwner,groupReadOnly,groupModify,groupPrivileged,rowETag\n");
+
+      for (RowResource row : rows) {
+        body.append(formatData(row.getRowId()) + ",");
+        body.append(formatData(row.getFormId()) + ",");
+        body.append(formatData(row.getLocale()) + ",");
+        body.append(formatData(row.getSavepointType()) + ",");
+        body.append(formatData(row.getSavepointTimestamp()) + ",");
+        body.append(formatData(row.getSavepointCreator()) + ",");
+        body.append(formatData(row.getCreateUser()) + ",");
+        body.append(formatData(row.getLastUpdateUser()) + ",");
+        body.append(row.isDeleted()); body.append(",");
+        body.append(formatData(row.getDataETagAtModification()) + ",");
+        ArrayList<DataKeyValue> rowValues = row.getValues();
+        for (DataKeyValue value : rowValues) {
+          body.append((value.value == null ? "" : value.value) + ",");
+        }
+        RowFilterScope rfs = row.getRowFilterScope();
+        body.append(formatData(rfs.getDefaultAccess().name()) + ",");
+        body.append(formatData(rfs.getRowOwner()) + ",");
+        body.append(formatData(rfs.getGroupReadOnly()) + ",");
+        body.append(formatData(rfs.getGroupModify()) + ",");
+        body.append(formatData(rfs.getGroupPrivileged()) + ",");
+        body.append(formatData(row.getRowETag()) + "\n");
+      }
+
+      return new ResponseEntity<>(body.toString(), headers, HttpStatus.OK);
     }
 
     return ResponseEntity.notFound().build();
+  }
+
+  String formatData(String data) {
+    if (data == null) {
+      return "";
+    } else {
+      return data.replaceAll(",", " ");
+    }
   }
 
   Map<String, SurveyQuestion> getSurveyQuestionMap(FormDef rootNode) {
